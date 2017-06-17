@@ -16,7 +16,7 @@ def plot_it(v, i, flag = None, v_indices = np.array([0]), title = None, pltaxis 
          plt.plot(vspace, v, lw=2)
     else:
          vspace = v_indices
-         plt.plot(vspace, v, 'ro')
+         plt.plot(vspace, v, lw=2)
     if pltaxis != None:
          plt.axis(pltaxis)
     if flag == 'save':
@@ -26,21 +26,26 @@ def plot_it(v, i, flag = None, v_indices = np.array([0]), title = None, pltaxis 
         plt.show()
 
 # Code here for importing data from file
-snaps =  read_me('burg/snaps_0p02_0p02_5.dat',
-                 'burg/snaps_0p02_0p02_1.dat',
-                 'burg/snaps_0p02_0p02_2p5.dat').T
-              
+#snaps =  read_me('burg/snaps_0p02_0p02_5.dat',
+#                 'burg/snaps_0p02_0p02_1.dat',
+#                 'burg/snaps_0p02_0p02_2p5.dat').T
+				 
+snaps =  read_me('burg/snaps_0p02_0p02_5.dat').T
+snaps = snaps[10:40,::5]
 mu = np.array((5,1,2.5))
-(n_samp, n_x), n_mu = snaps.shape, mu.shape[0]
+mu = np.array((5))
+#(n_samp, n_x), n_mu = snaps.shape, mu.shape[0]
+(n_samp, n_x), n_mu = snaps.shape, 1
 n_t = int(n_samp/n_mu)
 
 t = np.linspace(0.0, 500.0, n_t)
 x = np.linspace(0.0, 100.0, n_x)
 mu_vec = np.repeat(mu,n_t*n_x)
 t_vec = np.tile(np.repeat(t,n_x),n_mu)
-x_vec = np.tile(x,501*3)
+x_vec = np.tile(x,n_t*n_mu)
 y = snaps.flatten()
-input = np.vstack((x_vec,t_vec,mu_vec)).T
+#input = np.vstack((x_vec,t_vec,mu_vec)).T
+input = np.vstack((x_vec,t_vec)).T
 #plot_it(np.hstack((snaps[:, [150]], snaps[:, [50]])),1)
 
 # Make inputs noisy
@@ -56,12 +61,12 @@ scaled_output_2 = (scaled_output_1*2)-1
 input_data = scaled_input_2
 output_data = scaled_output_2
 
-input_data = input
-output_data = y
+#input_data = input
+#output_data = y
 
 # Build neural network with 3 hidden layers
 n_samp, n_input = input_data.shape 
-n_hidden = [3,3,3]
+n_hidden = [50,100,50]
 x_input = tf.placeholder("float", [None, n_input])
 # Weights and biases from input to hidden layer 1
 Wh1 = tf.Variable(tf.random_uniform((n_input, n_hidden[0]), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
@@ -77,9 +82,9 @@ bh3 = tf.Variable(tf.zeros([n_hidden[2]]))
 h3 = tf.nn.tanh(tf.matmul(h2,Wh3) + bh3)
 # Weights and biases from hidden layer 3 to output
 #Wo = tf.transpose(Wh) # tied weights
-Wo = tf.Variable(tf.random_uniform((n_hidden[2], 1), -1.0 / math.sqrt(1.0), 1.0 / math.sqrt(1.0)))
+Wo = tf.Variable(tf.random_uniform((n_hidden[2], 1), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
 bo = tf.Variable(tf.zeros([1]))
-y = tf.matmul(h3,Wo) + bo
+y = tf.nn.tanh(tf.matmul(h3,Wo) + bo)
 # Objective functions
 y_ = tf.placeholder("float", [None])
 generation_loss = tf.reduce_sum(tf.square(y_-y))
@@ -114,11 +119,12 @@ print(sess.run(bo))
 print("Final activations of hidden layer")
 print(sess.run(h3, feed_dict={x_input: input_data}))
 
-predictions = sess.run(y, feed_dict={x_input: input_data}).reshape((1503,1000))
-comparisons = output_data.reshape((1503,1000))
+predictions = sess.run(y, feed_dict={x_input: input_data}).reshape((n_t*n_mu,n_x))
+comparisons = output_data.reshape((n_t*n_mu,n_x))
 
+numsnaps = snaps.shape[0]
 numplots = 10
 for i in range(numplots): 
-    x1 = predictions[[i*int(500/numplots)],:]
-    x2 = comparisons[[i*int(500/numplots)],:]
-    plot_it(np.hstack((x2.T,x1.T)),int(500/numplots))
+    x1 = predictions[[i*int(numsnaps/numplots)],:]
+    x2 = comparisons[[i*int(numsnaps/numplots)],:]
+    plot_it(np.hstack((x2.T,x1.T)),int(numsnaps/numplots), v_indices = np.linspace(0.0, 100.0, 1000)[::5])
