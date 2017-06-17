@@ -31,7 +31,7 @@ def plot_it(v, i, flag = None, v_indices = np.array([0]), title = None, pltaxis 
 #                 'burg/snaps_0p02_0p02_2p5.dat').T
 				 
 snaps =  read_me('burg/snaps_0p02_0p02_5.dat').T
-snaps = snaps[10:40,::5]
+#snaps = snaps[10:40,::5]
 mu = np.array((5,1,2.5))
 mu = np.array((5))
 #(n_samp, n_x), n_mu = snaps.shape, mu.shape[0]
@@ -43,7 +43,7 @@ x = np.linspace(0.0, 100.0, n_x)
 mu_vec = np.repeat(mu,n_t*n_x)
 t_vec = np.tile(np.repeat(t,n_x),n_mu)
 x_vec = np.tile(x,n_t*n_mu)
-y = snaps.flatten()
+y = snaps.flatten().reshape((n_x*n_t*n_mu,1))
 #input = np.vstack((x_vec,t_vec,mu_vec)).T
 input = np.vstack((x_vec,t_vec)).T
 #plot_it(np.hstack((snaps[:, [150]], snaps[:, [50]])),1)
@@ -61,12 +61,12 @@ scaled_output_2 = (scaled_output_1*2)-1
 input_data = scaled_input_2
 output_data = scaled_output_2
 
-#input_data = input
+input_data = input
 #output_data = y
 
 # Build neural network with 3 hidden layers
 n_samp, n_input = input_data.shape 
-n_hidden = [50,100,50]
+n_hidden = [10,10]
 x_input = tf.placeholder("float", [None, n_input])
 # Weights and biases from input to hidden layer 1
 Wh1 = tf.Variable(tf.random_uniform((n_input, n_hidden[0]), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
@@ -76,17 +76,13 @@ h1 = tf.nn.tanh(tf.matmul(x_input,Wh1) + bh1)
 Wh2 = tf.Variable(tf.random_uniform((n_hidden[0], n_hidden[1]), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
 bh2 = tf.Variable(tf.zeros([n_hidden[1]]))
 h2 = tf.nn.tanh(tf.matmul(h1,Wh2) + bh2)
-# Weights and biases from hidden layer 2 to hidden layer 3
-Wh3 = tf.Variable(tf.random_uniform((n_hidden[1], n_hidden[2]), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
-bh3 = tf.Variable(tf.zeros([n_hidden[2]]))
-h3 = tf.nn.tanh(tf.matmul(h2,Wh3) + bh3)
 # Weights and biases from hidden layer 3 to output
 #Wo = tf.transpose(Wh) # tied weights
-Wo = tf.Variable(tf.random_uniform((n_hidden[2], 1), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
+Wo = tf.Variable(tf.random_uniform((n_hidden[1], 1), -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input)))
 bo = tf.Variable(tf.zeros([1]))
-y = tf.nn.tanh(tf.matmul(h3,Wo) + bo)
+y = tf.matmul(h2,Wo) + bo
 # Objective functions
-y_ = tf.placeholder("float", [None])
+y_ = tf.placeholder("float", [None,1])
 generation_loss = tf.reduce_sum(tf.square(y_-y))
 loss = tf.reduce_mean(generation_loss)
 train_step = tf.train.AdamOptimizer().minimize(loss)
@@ -111,20 +107,24 @@ print(output_data)
 print("Final activations:")
 print(sess.run(y, feed_dict={x_input: input_data}))
 print("Final weights (input => hidden layer)")
-print(sess.run(Wh3))
+print(sess.run(Wh1))
 print("Final biases (input => hidden layer)")
-print(sess.run(bh3))
+print(sess.run(bh1))
 print("Final biases (hidden layer => output)")
 print(sess.run(bo))
 print("Final activations of hidden layer")
-print(sess.run(h3, feed_dict={x_input: input_data}))
+print(sess.run(h1, feed_dict={x_input: input_data}))
 
 predictions = sess.run(y, feed_dict={x_input: input_data}).reshape((n_t*n_mu,n_x))
 comparisons = output_data.reshape((n_t*n_mu,n_x))
 
-numsnaps = snaps.shape[0]
+numsnaps = snaps.shape[0]*.65
 numplots = 10
 for i in range(numplots): 
     x1 = predictions[[i*int(numsnaps/numplots)],:]
     x2 = comparisons[[i*int(numsnaps/numplots)],:]
-    plot_it(np.hstack((x2.T,x1.T)),int(numsnaps/numplots), v_indices = np.linspace(0.0, 100.0, 1000)[::5])
+    #plot_it(np.hstack((x2.T,x1.T)),int(numsnaps/numplots), v_indices = np.linspace(0.0, 100.0, 1000)[::5])
+    plot_it(np.hstack((x2.T,x1.T)),int(numsnaps/numplots), v_indices = np.linspace(0.0, 100.0, 1000)[::1])
+    
+#sample = np.random.randint(n_samp, size=6)
+#sess.run(generation_loss, feed_dict={x_input: input_data[sample], y_: output_data[sample]})
